@@ -16,14 +16,13 @@ import {
   Easing
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient'; // Asegúrate de tener expo-linear-gradient instalado: expo install expo-linear-gradient
+import { LinearGradient } from 'expo-linear-gradient'; 
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../src/config/firebaseConfig';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// Descarga la imagen del patrón seamless hand-drawn desde la URL proporcionada y guárdala como asset local.
-// Ejemplo: require('../assets/pattern-hand-drawn.jpg');
-const backgroundImage = require('../assets/hamburguesas-fondo.png'); // Reemplaza con tu archivo local
+
+const backgroundImage = require('../assets/hamburguesas-fondo.png');
 
 export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
@@ -36,7 +35,7 @@ export default function Login({ navigation }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showFieldsErrorModal, setShowFieldsErrorModal] = useState(false);
 
-  // Valor animado para la flotación de la hamburguesa
+  // Valor animado para que la hamburguesa flote
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   // Validaciones de correo
@@ -51,13 +50,13 @@ export default function Login({ navigation }) {
     return '#ECCB6C'; // Dorado mientras se escribe
   };
 
-  // Animación de flotación constante para la hamburguesa
+  // Animación constante para la hamburguesa
   useEffect(() => {
     const floatUp = Animated.timing(animatedValue, {
       toValue: -15, // Mover 15px hacia arriba
       duration: 1500, // Duración suave
       useNativeDriver: true,
-      easing: Easing.inOut(Easing.quad), // Easing suave para flotación natural
+      easing: Easing.inOut(Easing.quad),
     });
 
     const floatDown = Animated.timing(animatedValue, {

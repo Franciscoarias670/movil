@@ -36,6 +36,7 @@ export default function Home({ navigation }) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [lowStockProducts, setLowStockProducts] = useState([]);
   const [startDate, setStartDate] = useState(subDays(new Date(), 29));
+  const [allProducts, setAllProducts] = useState([]); // Estado para todos los productos
   const [endDate, setEndDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState('start');
@@ -43,6 +44,7 @@ export default function Home({ navigation }) {
     labels: [],
     datasets: [{ data: [] }]
   });
+  const [topProductsDetails, setTopProductsDetails] = useState([]);
   const [loadingChart, setLoadingChart] = useState(true);
 
   // Estado para el modal
@@ -60,17 +62,21 @@ export default function Home({ navigation }) {
     }
   };
 
-  // Efecto para cargar datos del dashboard (alertas de stock y ventas)
+  // Efecto para cargar productos y alertas de stock
   useEffect(() => {
-    // 1. Alertas de Stock Bajo
     const productsQuery = query(collection(db, "products"));
     const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
-      const lowStock = snapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() }))
-        .filter(p => p.stockActual <= p.stockMinimo);
+      const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllProducts(productsData);
+      const lowStock = productsData.filter(p => p.stockActual <= p.stockMinimo);
       setLowStockProducts(lowStock);
     });
 
+    return () => unsubscribeProducts();
+  }, []);
+
+  // Efecto para cargar el gráfico de ventas, depende de las fechas y de que los productos se hayan cargado
+  useEffect(() => {
     // 2. Gráfico de Ventas
     setLoadingChart(true);
     // Ajustar la consulta para que use el rango de fechas del estado
@@ -95,10 +101,20 @@ export default function Home({ navigation }) {
         .sort(([, a], [, b]) => b - a)
         .slice(0, 5); // Top 5
 
+      const detailedProducts = sortedProducts.map(([name, quantity]) => {
+        const productDetail = allProducts.find(p => p.name === name);
+        return {
+          name,
+          quantity,
+          imageUrl: productDetail ? productDetail.imageUrl : null,
+        };
+      });
+      setTopProductsDetails(detailedProducts);
+
       if (sortedProducts.length > 0) {
         setSalesData({
           labels: sortedProducts.map(([name]) => name.substring(0, 10)),
-          datasets: [{ data: sortedProducts.map(([, quantity]) => quantity) }]
+          datasets: [{ data: sortedProducts.map(([, quantity]) => quantity) }],
         });
       }
       setLoadingChart(false);
@@ -107,11 +123,8 @@ export default function Home({ navigation }) {
       setLoadingChart(false);
     });
 
-    return () => {
-      unsubscribeProducts();
-      unsubscribeOrders();
-    };
-  }, [startDate, endDate]);
+    return () => unsubscribeOrders();
+  }, [startDate, endDate, allProducts]); // allProducts está aquí para que el gráfico se actualice cuando los productos se carguen por primera vez
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -229,29 +242,46 @@ export default function Home({ navigation }) {
                   {loadingChart ? (
                     <Text style={styles.loadingText}>Cargando datos del gráfico...</Text>
                   ) : salesData.labels.length > 0 ? (
-                    <BarChart
-                      data={salesData}
-                      width={Dimensions.get('window').width - 70}
-                      height={220}
-                      yAxisLabel=""
-                      yAxisSuffix=""
-                      chartConfig={{
-                        backgroundColor: '#e26a00',
-                        backgroundGradientFrom: '#DA5E2B',
-                        backgroundGradientTo: '#E0782F',
-                        decimalPlaces: 0,
-                        color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                        labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                        propsForLabels: {
-                          fontSize: 11,
-                        },
-                        style: { borderRadius: 16 },
-                      }}
-                      verticalLabelRotation={30}
-                      style={{ marginVertical: 8, borderRadius: 16 }}
-                    />
+                    <View style={styles.chartContainer}>
+                      <Text style={styles.yAxisLabel}>Cant. Vendida</Text>
+                      <View>
+                        <BarChart
+                          data={salesData}
+                          width={Dimensions.get('window').width - 80}
+                          height={220}
+                          yAxisLabel=""
+                          yAxisSuffix=""
+                          chartConfig={{
+                            backgroundColor: '#e26a00',
+                            backgroundGradientFrom: '#DA5E2B',
+                            backgroundGradientTo: '#E0782F',
+                            decimalPlaces: 0,
+                            color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                            labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                            propsForLabels: {
+                              fontSize: 10,
+                            },
+                            style: { borderRadius: 16 },
+                          }}
+                          verticalLabelRotation={20}
+                          style={{ marginVertical: 8, borderRadius: 16, paddingRight: 30 }}
+                        />
+                        <Text style={styles.xAxisLabel}>Productos</Text>
+                      </View>
+                    </View>
                   ) : (
                     <Text style={styles.noAlertsText}>No hay datos de ventas para mostrar.</Text>
+                  )}
+                  {salesData.labels.length > 0 && !loadingChart && (
+                    <View style={styles.legendContainer}>
+                      {topProductsDetails.map((product, index) => (
+                        <View key={index} style={styles.legendItem}>
+                          <Image source={{ uri: product.imageUrl || 'https://via.placeholder.com/40' }} style={styles.legendImage} />
+                          <Text style={styles.legendText} numberOfLines={1}>{product.name}</Text>
+                          <Text style={styles.legendQuantity}>({product.quantity})</Text>
+                        </View>
+                      ))}
+                    </View>
                   )}
                   {showDatePicker && (
                     <DateTimePicker
@@ -423,5 +453,53 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
     marginLeft: 8,
-  }
+  },
+  chartContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start', // Alinea al inicio para que la leyenda no interfiera
+    marginTop: 10,
+  },
+  yAxisLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    transform: [{ rotate: '-90deg' }],
+    width: 100, // Ancho para que el texto no se corte
+    position: 'absolute',
+    left: -55,
+    top: 80,
+  },
+  xAxisLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  legendContainer: {
+    marginTop: 20,
+    width: '100%',
+    paddingHorizontal: 10,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  legendImage: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 10,
+  },
+  legendText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    flex: 1,
+  },
+  legendQuantity: {
+    color: '#ECCB6C',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
 });

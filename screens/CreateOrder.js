@@ -6,6 +6,8 @@ import { FontAwesome } from '@expo/vector-icons';
 import { collection, onSnapshot, addDoc, Timestamp, writeBatch, doc } from 'firebase/firestore';
 import { db } from '../src/config/firebaseConfig';
 import CustomModal from './CustomModal';
+import ConfirmationModal from './ConfirmationModal';
+
 
 export default function CreateOrder({ navigation }) {
   const [allProducts, setAllProducts] = useState([]);
@@ -16,6 +18,8 @@ export default function CreateOrder({ navigation }) {
   const [total, setTotal] = useState(0);
   const [isCartVisible, setIsCartVisible] = useState(false);
   const [modalInfo, setModalInfo] = useState({ visible: false, type: '', title: '', message: '' });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -221,8 +225,14 @@ export default function CreateOrder({ navigation }) {
                         <FontAwesome name="plus-circle" size={22} color="#03ce00ff" />
                       </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={() => removeFromCart(item.id)} style={{ marginLeft: 10 }}>
-                      <FontAwesome name="trash" size={22} color="#CF302A" />
+                    <TouchableOpacity
+                    onPress={() => {
+                      setProductToDelete(item.id);
+                      setShowDeleteConfirm(true);
+                     }}
+                       style={{ marginLeft: 10 }}
+                    >
+                     <FontAwesome name="trash" size={22} color="#CF302A" />
                     </TouchableOpacity>
                   </View>
                 )}
@@ -255,6 +265,23 @@ export default function CreateOrder({ navigation }) {
         title={modalInfo.title}
         message={modalInfo.message}
       />
+      <ConfirmationModal
+        visible={showDeleteConfirm}
+        onClose={() => { 
+    setShowDeleteConfirm(false); 
+    setProductToDelete(null); 
+  }}
+  onConfirm={() => {
+    removeFromCart(productToDelete);
+    setShowDeleteConfirm(false);
+    setProductToDelete(null);
+  }}
+  title="Eliminar Producto"
+  message="¿Estás seguro de que quieres eliminar este producto del Carrito? Esta acción no se puede deshacer."
+  confirmText="Eliminar"
+      />
+      
+      
     </SafeAreaView>
   );
 }
@@ -336,12 +363,13 @@ const styles = StyleSheet.create({
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginRight: 30,
   },
   quantityText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
-    marginHorizontal: 10,
+    marginHorizontal: 15,
   },
   emptyCartText: {
     color: '#a2a1a1ff',

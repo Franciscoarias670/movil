@@ -167,13 +167,17 @@ export default function ProductForm({ navigation, route }) {
                   </TouchableOpacity>
               </View>
 
-              <Text style={styles.label}>Nombre del Producto</Text>
+              <Text style={styles.label}>
+                 Nombre del Producto <Text style={{ color: 'red' }}>*</Text>
+              </Text>
               <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="Ej: Hamburguesa Clásica" placeholderTextColor="#a2a1a1ff" />
 
               <Text style={styles.label}>Descripción</Text>
               <TextInput style={styles.input} value={description} onChangeText={setDescription} placeholder="Ej: Doble carne, cheddar, bacon..." placeholderTextColor="#a2a1a1ff" multiline />
 
-              <Text style={styles.label}>Precio</Text>
+              <Text style={styles.label}>
+                Precio <Text style={{ color: 'red' }}>*</Text>
+              </Text>
               <TextInput style={styles.input} value={price} onChangeText={setPrice} placeholder="Ej: 1500" placeholderTextColor="#a2a1a1ff" keyboardType="numeric" />
 
               <Text style={styles.label}>Insumos (separados por coma)</Text>

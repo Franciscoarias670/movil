@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  View, 
-  Text, 
-  TouchableOpacity, 
-  StyleSheet, 
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
@@ -13,7 +13,8 @@ import {
   Image,
   Animated,
   Easing,
-  Dimensions
+  Dimensions,
+  useWindowDimensions
 } from 'react-native';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth, db } from '../src/config/firebaseConfig'; // Import 'db'
@@ -23,13 +24,16 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CustomModal from './CustomModal'; // Importar el modal reutilizable
 import ConfirmationModal from './ConfirmationModal'; // Importar el modal de confirmación
-import { BarChart } from 'react-native-chart-kit';
+import { PieChart } from 'react-native-chart-kit';
 import { subDays } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const backgroundImage = require('../assets/hamburguesas-fondo.png');
 
 export default function Home({ navigation }) {
+  const { width } = useWindowDimensions();
+  const centralContainerPadding = 30; // 15 px de cada lado
+  const chartWidth = Math.min(width * 0.95, 400) - centralContainerPadding;
   const [activeTab, setActiveTab] = useState('home');
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
@@ -46,6 +50,7 @@ export default function Home({ navigation }) {
   });
   const [topProductsDetails, setTopProductsDetails] = useState([]);
   const [loadingChart, setLoadingChart] = useState(true);
+  const chartColors = ['#ff63bbff', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
 
   // Estado para el modal
   const [modalInfo, setModalInfo] = useState({ visible: false, type: '', title: '', message: '' });
@@ -54,7 +59,7 @@ export default function Home({ navigation }) {
 
   const handleLogOut = async () => {
     try {
-      await signOut(auth);  
+      await signOut(auth);
       setShowLogoutConfirm(false);
     } catch (error) {
       setShowLogoutConfirm(false);
@@ -178,10 +183,10 @@ export default function Home({ navigation }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      <ImageBackground 
-        source={backgroundImage} 
-        style={styles.backgroundImage} 
+
+      <ImageBackground
+        source={backgroundImage}
+        style={styles.backgroundImage}
         blurRadius={1}
         resizeMode="cover"
       >
@@ -191,11 +196,11 @@ export default function Home({ navigation }) {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <KeyboardAvoidingView 
+          <KeyboardAvoidingView
             style={styles.keyboardAvoiding}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           >
-            <ScrollView 
+            <ScrollView
               contentContainerStyle={styles.scrollContainer}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
@@ -241,47 +246,51 @@ export default function Home({ navigation }) {
                   </View>
                   {loadingChart ? (
                     <Text style={styles.loadingText}>Cargando datos del gráfico...</Text>
-                  ) : salesData.labels.length > 0 ? (
-                    <View style={styles.chartContainer}>
-                      <Text style={styles.yAxisLabel}>Cant. Vendida</Text>
-                      <View>
-                        <BarChart
-                          data={salesData}
-                          width={Dimensions.get('window').width - 80}
-                          height={220}
-                          yAxisLabel=""
-                          yAxisSuffix=""
-                          chartConfig={{
-                            backgroundColor: '#e26a00',
-                            backgroundGradientFrom: '#DA5E2B',
-                            backgroundGradientTo: '#E0782F',
-                            decimalPlaces: 0,
-                            color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                            labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                            propsForLabels: {
-                              fontSize: 10,
-                            },
-                            style: { borderRadius: 16 },
-                          }}
-                          verticalLabelRotation={20}
-                          style={{ marginVertical: 8, borderRadius: 16, paddingRight: 30 }}
-                        />
-                        <Text style={styles.xAxisLabel}>Productos</Text>
+                  ) : topProductsDetails.length > 0 ? (
+                    <>
+                      <PieChart
+                        data={topProductsDetails.map((product, index) => ({
+                          name: product.name,
+                          population: product.quantity,
+                          color: chartColors[index % chartColors.length],
+                          legendFontColor: '#FFFFFF',
+                          legendFontSize: 13,
+                        }))}
+                        width={chartWidth}
+                        height={220}
+                        chartConfig={{
+                          backgroundColor: '#DA5E2B',
+                          backgroundGradientFrom: '#DA5E2B',
+                          backgroundGradientTo: '#E0782F',
+                          color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                          labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                        }}
+                        accessor="population"
+                        backgroundColor="transparent"
+                        paddingLeft="15"
+                        absolute
+                        style={{
+                          marginVertical: 8,
+                          borderRadius: 16,
+                        }}
+                      />
+
+                      {/* Leyenda con imágenes */}
+                      <View style={styles.legendContainer}>
+                        {topProductsDetails.map((product, index) => (
+                          <View key={index} style={styles.legendItem}>
+                            <Image
+                              source={{ uri: product.imageUrl || 'https://via.placeholder.com/40' }}
+                              style={styles.legendImage}
+                            />
+                            <Text style={styles.legendText} numberOfLines={1}>{product.name}</Text>
+                            <Text style={styles.legendQuantity}>({product.quantity})</Text>
+                          </View>
+                        ))}
                       </View>
-                    </View>
+                    </>
                   ) : (
                     <Text style={styles.noAlertsText}>No hay datos de ventas para mostrar.</Text>
-                  )}
-                  {salesData.labels.length > 0 && !loadingChart && (
-                    <View style={styles.legendContainer}>
-                      {topProductsDetails.map((product, index) => (
-                        <View key={index} style={styles.legendItem}>
-                          <Image source={{ uri: product.imageUrl || 'https://via.placeholder.com/40' }} style={styles.legendImage} />
-                          <Text style={styles.legendText} numberOfLines={1}>{product.name}</Text>
-                          <Text style={styles.legendQuantity}>({product.quantity})</Text>
-                        </View>
-                      ))}
-                    </View>
                   )}
                   {showDatePicker && (
                     <DateTimePicker

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { onAuthStateChanged } from 'firebase/auth';  
-import { auth } from '../src/config/firebaseConfig';  
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../src/config/firebaseConfig';
 import Login from '../screens/Login';
 import SignUp from '../screens/SignUp';
 import Home from '../screens/Home';
@@ -14,6 +14,8 @@ import ProductDetail from '../screens/ProductDetail';
 import { StatusBar, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
+import MiCuentaInteractiva from '../screens/MiCuenta';
+
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -50,9 +52,9 @@ function CustomTabBar({ state, descriptors, navigation }) {
             onPress={onPress}
             style={[styles.tabButton, isFocused && styles.tabButtonActive]}
           >
-            <FontAwesome 
-              name={iconName} 
-              size={24} 
+            <FontAwesome
+              name={iconName}
+              size={24}
               color={isFocused ? "#DA5E2B" : "#a2a1a1ff"}
             />
             <Text style={[styles.tabText, isFocused && styles.tabTextActive]}>
@@ -67,24 +69,24 @@ function CustomTabBar({ state, descriptors, navigation }) {
 
 function MainTabNavigator() {
   return (
-    <Tab.Navigator 
+    <Tab.Navigator
       tabBar={props => <CustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen 
-        name="Home" 
-        component={Home} 
-        options={{ tabBarLabel: 'Inicio', tabBarIconName: 'home' }} 
+      <Tab.Screen
+        name="Home"
+        component={Home}
+        options={{ tabBarLabel: 'Inicio', tabBarIconName: 'home' }}
       />
-      <Tab.Screen 
-        name="Products" 
-        component={Products} 
-        options={{ tabBarLabel: 'Productos', tabBarIconName: 'cubes' }} 
+      <Tab.Screen
+        name="Products"
+        component={Products}
+        options={{ tabBarLabel: 'Productos', tabBarIconName: 'cubes' }}
       />
-      <Tab.Screen 
-        name="CreateOrder" 
-        component={CreateOrder} 
-        options={{ tabBarLabel: 'Venta', tabBarIconName: 'cart-plus' }} 
+      <Tab.Screen
+        name="CreateOrder"
+        component={CreateOrder}
+        options={{ tabBarLabel: 'Venta', tabBarIconName: 'cart-plus' }}
       />
     </Tab.Navigator>
   );
@@ -97,9 +99,9 @@ function Navigation() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, user => {
       if (user) {
-        setIsAuthenticated(true); 
+        setIsAuthenticated(true);
       } else {
-        setIsAuthenticated(false); 
+        setIsAuthenticated(false);
       }
       setIsLoading(false);
     });
@@ -110,18 +112,18 @@ function Navigation() {
   if (isLoading) {
     // Mientras se verifica el estado de auth, no mostramos nada o un spinner.
     // Esto previene el "flash" de la pantalla de login.
-    return null; 
+    return null;
   }
 
   return (
     <SafeAreaProvider>
-      <StatusBar 
-        barStyle="light-content" 
+      <StatusBar
+        barStyle="light-content"
         backgroundColor="transparent"
         translucent={true}
       />
       <NavigationContainer>
-        <Stack.Navigator 
+        <Stack.Navigator
           screenOptions={{
             headerStyle: {
               backgroundColor: '#000000',
@@ -137,31 +139,36 @@ function Navigation() {
         >
           {isAuthenticated ? (
             <>
-              <Stack.Screen 
-                name="Main" 
+              <Stack.Screen
+                name="Main"
                 component={MainTabNavigator}
                 options={{ headerShown: false }}
               />
-              <Stack.Screen 
-                name="ProductForm" 
+              <Stack.Screen
+                name="ProductForm"
                 component={ProductForm}
                 options={{ headerShown: false }}
               />
-              <Stack.Screen 
-                name="ProductDetail" 
+              <Stack.Screen
+                name="ProductDetail"
                 component={ProductDetail}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="MiCuenta"
+                component={MiCuentaInteractiva}
                 options={{ headerShown: false }}
               />
             </>
           ) : (
             <>
-              <Stack.Screen 
-                name="Login" 
+              <Stack.Screen
+                name="Login"
                 component={Login}
                 options={{ headerShown: false }}
               />
-              <Stack.Screen 
-                name="SignUp" 
+              <Stack.Screen
+                name="SignUp"
                 component={SignUp}
                 options={{ headerShown: false }}
               />
@@ -176,9 +183,9 @@ function Navigation() {
 const styles = StyleSheet.create({
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(134, 53, 2, 0.94)',
+    backgroundColor: 'rgba(90, 51, 26, 0.78)',
     borderTopWidth: 2,
-    borderTopColor: '#CF302A',
+    borderTopColor: 'rgba(90, 51, 26, 0.78)',
     paddingVertical: 10,
     paddingHorizontal: 5,
   },
@@ -189,7 +196,7 @@ const styles = StyleSheet.create({
   },
   tabButtonActive: {
     borderTopWidth: 3,
-    borderTopColor: '#DA5E2B',
+    borderTopColor: '#ab3f14ff',
     paddingTop: 5, // Ajuste para que el borde no empuje el contenido
   },
   tabText: {

@@ -8,112 +8,110 @@ import {
   KeyboardAvoidingView,
   Platform,
   StatusBar,
-  Modal,
   ImageBackground,
   Image,
   Animated,
   Easing,
-  Dimensions,
   useWindowDimensions
 } from 'react-native';
 import { signOut, onAuthStateChanged } from 'firebase/auth';
-import { auth, db } from '../src/config/firebaseConfig'; // Import 'db'
-import { collection, onSnapshot, query, where, Timestamp } from 'firebase/firestore'; // Firestore imports
+import { auth, db } from '../src/config/firebaseConfig';
+import { collection, onSnapshot, query, where, Timestamp } from 'firebase/firestore';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import CustomModal from './CustomModal'; // Importar el modal reutilizable
-import ConfirmationModal from './ConfirmationModal'; // Importar el modal de confirmación
+import CustomModal from './CustomModal';
+import ConfirmationModal from './ConfirmationModal';
 import { PieChart } from 'react-native-chart-kit';
 import { subDays } from 'date-fns';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFocusEffect } from '@react-navigation/native';
 
 const backgroundImage = require('../assets/hamburguesas-fondo.png');
 
 export default function Home({ navigation }) {
   const { width } = useWindowDimensions();
-  const centralContainerPadding = 30; // 15 px de cada lado
-  const chartWidth = Math.min(width * 0.95, 400) - centralContainerPadding;
+  const chartWidth = Math.min(width * 0.95, 400) - 30; // padding
+
   const [activeTab, setActiveTab] = useState('home');
-  const [loading, setLoading] = useState(true);
+  const [loadingChart, setLoadingChart] = useState(true);
   const [userName, setUserName] = useState('');
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [lowStockProducts, setLowStockProducts] = useState([]);
+  const [allProducts, setAllProducts] = useState([]);
   const [startDate, setStartDate] = useState(subDays(new Date(), 29));
-  const [allProducts, setAllProducts] = useState([]); // Estado para todos los productos
   const [endDate, setEndDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [datePickerTarget, setDatePickerTarget] = useState('start');
-  const [salesData, setSalesData] = useState({
-    labels: [],
-    datasets: [{ data: [] }]
-  });
+  const [salesData, setSalesData] = useState({ labels: [], datasets: [{ data: [] }] });
   const [topProductsDetails, setTopProductsDetails] = useState([]);
-  const [loadingChart, setLoadingChart] = useState(true);
-  const chartColors = ['#ff63bbff', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
-
-  // Estado para el modal
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const [modalInfo, setModalInfo] = useState({ visible: false, type: '', title: '', message: '' });
 
   const animatedValue = useRef(new Animated.Value(0)).current;
+  const chartColors = ['#ff63bbff', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'];
 
+  // --- LOGOUT ---
   const handleLogOut = async () => {
+    setShowLogoutConfirm(false);
     try {
       await signOut(auth);
-      setShowLogoutConfirm(false);
     } catch (error) {
-      setShowLogoutConfirm(false);
-      setModalInfo({ visible: true, type: 'error', title: 'Error', message: 'Hubo un problema al cerrar sesión.' });
+      setModalInfo({ visible: true, type: 'error', title: 'Error', message: error.message });
     }
   };
 
-  // Efecto para cargar productos y alertas de stock
+  // --- AUTH USER ---
   useEffect(() => {
-    const productsQuery = query(collection(db, "products"));
-    const unsubscribeProducts = onSnapshot(productsQuery, (snapshot) => {
-      const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setAllProducts(productsData);
-      const lowStock = productsData.filter(p => p.stockActual <= p.stockMinimo);
-      setLowStockProducts(lowStock);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) setUserName(user.displayName || 'Usuario');
     });
-
-    return () => unsubscribeProducts();
+    return () => unsubscribe();
   }, []);
 
-  // Efecto para cargar el gráfico de ventas, depende de las fechas y de que los productos se hayan cargado
+  useFocusEffect(
+    React.useCallback(() => {
+      const user = auth.currentUser;
+      if (user) setUserName(user.displayName || 'Usuario');
+    }, [])
+  );
+
+  // --- LOW STOCK PRODUCTS ---
   useEffect(() => {
-    // 2. Gráfico de Ventas
+    const productsQuery = query(collection(db, "products"));
+    const unsubscribe = onSnapshot(productsQuery, (snapshot) => {
+      const productsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAllProducts(productsData);
+      setLowStockProducts(productsData.filter(p => p.stockActual <= p.stockMinimo));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // --- SALES CHART ---
+  useEffect(() => {
     setLoadingChart(true);
-    // Ajustar la consulta para que use el rango de fechas del estado
     const start = Timestamp.fromDate(startDate);
     const end = Timestamp.fromDate(endDate);
     const ordersQuery = query(collection(db, "orders"), where("createdAt", ">=", start), where("createdAt", "<=", end));
 
-    const unsubscribeOrders = onSnapshot(ordersQuery, (snapshot) => {
+    const unsubscribe = onSnapshot(ordersQuery, (snapshot) => {
       const productSales = {};
       snapshot.docs.forEach(doc => {
         const order = doc.data();
         order.items.forEach(item => {
-          if (productSales[item.productName]) {
-            productSales[item.productName] += item.quantity;
-          } else {
-            productSales[item.productName] = item.quantity;
-          }
+          productSales[item.productName] = (productSales[item.productName] || 0) + item.quantity;
         });
       });
 
       const sortedProducts = Object.entries(productSales)
         .sort(([, a], [, b]) => b - a)
-        .slice(0, 5); // Top 5
+        .slice(0, 5);
 
       const detailedProducts = sortedProducts.map(([name, quantity]) => {
         const productDetail = allProducts.find(p => p.name === name);
-        return {
-          name,
-          quantity,
-          imageUrl: productDetail ? productDetail.imageUrl : null,
-        };
+        return { name, quantity, imageUrl: productDetail?.imageUrl || null };
       });
+
       setTopProductsDetails(detailedProducts);
 
       if (sortedProducts.length > 0) {
@@ -124,22 +122,14 @@ export default function Home({ navigation }) {
       }
       setLoadingChart(false);
     }, (error) => {
-      console.error("Error fetching sales data: ", error);
+      console.error(error);
       setLoadingChart(false);
     });
 
-    return () => unsubscribeOrders();
-  }, [startDate, endDate, allProducts]); // allProducts está aquí para que el gráfico se actualice cuando los productos se carguen por primera vez
+    return () => unsubscribe();
+  }, [startDate, endDate, allProducts]);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setUserName(user.displayName || 'Usuario');
-      }
-    });
-    return () => unsubscribe(); // Limpiar el observador al desmontar
-  }, []);
-
+  // --- FLOAT ANIMATION ---
   useEffect(() => {
     const floatUp = Animated.timing(animatedValue, {
       toValue: -15,
@@ -160,19 +150,15 @@ export default function Home({ navigation }) {
     );
 
     floatAnimation.start();
-
     return () => floatAnimation.stop();
   }, [animatedValue]);
 
+  // --- DATE PICKER HANDLERS ---
   const onDateChange = (event, selectedDate) => {
     setShowDatePicker(false);
-    if (selectedDate) {
-      if (datePickerTarget === 'start') {
-        setStartDate(selectedDate);
-      } else {
-        setEndDate(selectedDate);
-      }
-    }
+    if (!selectedDate) return;
+    if (datePickerTarget === 'start') setStartDate(selectedDate);
+    else setEndDate(selectedDate);
   };
 
   const showDatepicker = (target) => {
@@ -180,67 +166,67 @@ export default function Home({ navigation }) {
     setShowDatePicker(true);
   };
 
+  // --- RENDER ---
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-
-      <ImageBackground
-        source={backgroundImage}
-        style={styles.backgroundImage}
-        blurRadius={1}
-        resizeMode="cover"
-      >
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#000' }} edges={['top']}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <ImageBackground source={backgroundImage} style={styles.backgroundImage} blurRadius={1} resizeMode="cover">
         <LinearGradient
-          colors={['rgba(0, 0, 0, 0.7)', 'rgba(135, 86, 56, 0.6)', 'rgba(0, 0, 0, 0.7)']}
+          colors={['rgba(0,0,0,0.7)', 'rgba(135,86,56,0.6)', 'rgba(0,0,0,0.7)']}
           style={styles.overlayGradient}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
-          <KeyboardAvoidingView
-            style={styles.keyboardAvoiding}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
-            <ScrollView
-              contentContainerStyle={styles.scrollContainer}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.centralContainer}>
-                <View style={styles.header}>
-                  <View style={styles.headerInfo}>
-                    <Text style={styles.headerTitle}>SANTO PECADO</Text>
-                    <Text style={styles.headerRole}>Bienvenido, {userName.toUpperCase()}</Text>
-                  </View>
-                  <TouchableOpacity onPress={() => setShowLogoutConfirm(true)} style={styles.logoutButton}>
-                    <MaterialIcons name="logout" size={24} color="#DA5E2B" />
-                  </TouchableOpacity>
-                </View>
+          {/* HEADER */}
+          <View style={styles.header}>
+            <View style={styles.headerInfo}>
+              <Text style={styles.headerTitle}>SANTO PECADO</Text>
+              <Text style={styles.headerRole}>Bienvenido, {userName.toUpperCase()}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setShowUserMenu(!showUserMenu)} style={styles.userIconButton}>
+              <FontAwesome name="user-circle" size={28} color="#FFF" />
+            </TouchableOpacity>
+            {showUserMenu && (
+              <View style={styles.userMenu}>
+                <TouchableOpacity style={styles.userMenuItem} onPress={() => navigation.navigate('MiCuenta')}>
+                  <FontAwesome name="user" size={18} color="#212121" />
+                  <Text style={styles.userMenuText}>Mi cuenta</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.userMenuItem} onPress={() => setShowLogoutConfirm(true)}>
+                  <MaterialIcons name="logout" size={18} color="#E53935" />
+                  <Text style={[styles.userMenuText, { color: '#E53935' }]}>Cerrar Sesión</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
 
-                {/* Alertas de Stock Bajo */}
+          {/* BODY */}
+          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+              <View style={{ width: '100%', paddingHorizontal: 30 }}>
+                {/* LOW STOCK */}
                 <View style={styles.sectionContainer}>
                   <Text style={styles.sectionTitle}>Alertas de Stock Bajo</Text>
-                  {lowStockProducts.length > 0 ? (
-                    lowStockProducts.map(p => (
-                      <View key={p.id} style={styles.alertItem}>
-                        <FontAwesome name="exclamation-triangle" size={16} color="#CF302A" />
-                        <Text style={styles.alertText}>{p.name} - Stock actual: {p.stockActual}</Text>
-                      </View>
-                    ))
-                  ) : (
+                  {lowStockProducts.length > 0 ? lowStockProducts.map(p => (
+                    <View key={p.id} style={styles.alertItem}>
+                      <FontAwesome name="exclamation-triangle" size={16} color="#CF302A" />
+                      <Text style={styles.alertText}>{p.name} - Stock actual: {p.stockActual}</Text>
+                    </View>
+                  )) : (
                     <Text style={styles.noAlertsText}>No hay productos con stock bajo.</Text>
                   )}
                 </View>
 
-                {/* Gráfico de Ventas */}
+                {/* SALES CHART */}
                 <View style={styles.sectionContainer}>
                   <Text style={styles.sectionTitle}>Top 5 Productos Vendidos</Text>
                   <View style={styles.filterContainer}>
                     <TouchableOpacity style={styles.datePickerButton} onPress={() => showDatepicker('start')}>
-                      <FontAwesome name="calendar" size={14} color="#FFFFFF" />
+                      <FontAwesome name="calendar" size={14} color="#FF7043" />
                       <Text style={styles.datePickerButtonText}>Desde: {startDate.toLocaleDateString('es-ES')}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={styles.datePickerButton} onPress={() => showDatepicker('end')}>
-                      <FontAwesome name="calendar" size={14} color="#FFFFFF" />
+                      <FontAwesome name="calendar" size={14} color="#FF7043" />
                       <Text style={styles.datePickerButtonText}>Hasta: {endDate.toLocaleDateString('es-ES')}</Text>
                     </TouchableOpacity>
                   </View>
@@ -253,7 +239,7 @@ export default function Home({ navigation }) {
                           name: product.name,
                           population: product.quantity,
                           color: chartColors[index % chartColors.length],
-                          legendFontColor: '#FFFFFF',
+                          legendFontColor: '#212121',
                           legendFontSize: 13,
                         }))}
                         width={chartWidth}
@@ -262,27 +248,19 @@ export default function Home({ navigation }) {
                           backgroundColor: '#DA5E2B',
                           backgroundGradientFrom: '#DA5E2B',
                           backgroundGradientTo: '#E0782F',
-                          color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                          labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+                          color: (opacity = 1) => `rgba(255,255,255,${opacity})`,
+                          labelColor: (opacity = 1) => `rgba(255,255,255,${opacity})`,
                         }}
                         accessor="population"
                         backgroundColor="transparent"
                         paddingLeft="15"
                         absolute
-                        style={{
-                          marginVertical: 8,
-                          borderRadius: 16,
-                        }}
+                        style={{ marginVertical: 8, borderRadius: 16 }}
                       />
-
-                      {/* Leyenda con imágenes */}
                       <View style={styles.legendContainer}>
                         {topProductsDetails.map((product, index) => (
                           <View key={index} style={styles.legendItem}>
-                            <Image
-                              source={{ uri: product.imageUrl || 'https://via.placeholder.com/40' }}
-                              style={styles.legendImage}
-                            />
+                            <Image source={{ uri: product.imageUrl || 'https://via.placeholder.com/40' }} style={styles.legendImage} />
                             <Text style={styles.legendText} numberOfLines={1}>{product.name}</Text>
                             <Text style={styles.legendQuantity}>({product.quantity})</Text>
                           </View>
@@ -292,6 +270,7 @@ export default function Home({ navigation }) {
                   ) : (
                     <Text style={styles.noAlertsText}>No hay datos de ventas para mostrar.</Text>
                   )}
+
                   {showDatePicker && (
                     <DateTimePicker
                       value={datePickerTarget === 'start' ? startDate : endDate}
@@ -307,6 +286,7 @@ export default function Home({ navigation }) {
         </LinearGradient>
       </ImageBackground>
 
+      {/* MODALES */}
       <CustomModal
         visible={modalInfo.visible}
         onClose={() => setModalInfo({ ...modalInfo, visible: false })}
@@ -314,7 +294,6 @@ export default function Home({ navigation }) {
         title={modalInfo.title}
         message={modalInfo.message}
       />
-
       <ConfirmationModal
         visible={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}
@@ -327,56 +306,29 @@ export default function Home({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000', // Añadido para consistencia de fondo
-  },
   backgroundImage: {
     flex: 1,
   },
   overlayGradient: {
     flex: 1,
   },
-  keyboardAvoiding: {
-    flex: 1,
-  },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 10,
-    paddingVertical: 40,
-  },
-  centralContainer: {
-    width: '95%',
-    maxWidth: 400,
-    minHeight: 800,
-    backgroundColor: 'rgba(135, 86, 56, 0.9)',
-    borderRadius: 20,
-    padding: 15,
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 10,
-    borderWidth: 1.5,
-    borderColor: '#CF302A',
-    position: 'relative',
+    paddingVertical: 30,
   },
   header: {
-    backgroundColor: 'rgba(135, 86, 56, 0.95)',
+    backgroundColor: 'rgba(90, 51, 26, 0.78)',
     paddingHorizontal: 20,
     paddingVertical: 15,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderRadius: 15,
+    borderBottomLeftRadius: 12,
+    borderBottomRightRadius: 12,
     marginBottom: 20,
     width: '100%',
-    borderWidth: 1,
-    borderColor: '#CF302A',
   },
   headerInfo: {
     flex: 1,
@@ -384,68 +336,88 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#ECCB6C',
-    marginBottom: 4,
+    color: '#FFF',
     textAlign: 'center',
+    marginBottom: 4,
   },
   headerRole: {
     fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '600',
+    color: '#FFE0B2',
+    fontWeight: '500',
     textAlign: 'center',
   },
-  logoutButton: {
+  userIconButton: {
     padding: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 10,
   },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 15,
-    alignSelf: 'flex-start',
+  userMenu: {
+    position: 'absolute',
+    top: 60,
+    right: 20,
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    paddingVertical: 10,
+    width: 150,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  userMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  userMenuText: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 10,
+    color: '#212121',
   },
   sectionContainer: {
-    marginBottom: 25,
+    marginBottom: 35,
     width: '100%',
+    backgroundColor: '#FFF',
+    borderRadius: 15,
+    padding: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  loadingText: {
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginTop: 20,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#212121',
+    marginBottom: 15,
   },
   alertItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(207, 48, 42, 0.2)',
-    padding: 10,
+    backgroundColor: '#FFEBEE',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     borderRadius: 10,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: 'rgba(207, 48, 42, 0.5)',
-    shadowColor: '#CF302A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 3,
-    elevation: 4,
+    borderColor: '#E53935',
   },
   alertText: {
-    color: '#FFFFFF',
+    color: '#E53935',
     marginLeft: 10,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
   noAlertsText: {
-    color: '#a2a1a1ff',
+    color: '#757575',
     fontStyle: 'italic',
-  },
-  sectionHeader: {
-    // Estilos eliminados para simplificar, el título ya está arriba
   },
   filterContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     width: '100%',
     marginBottom: 15,
   },
@@ -455,40 +427,24 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 15,
     borderRadius: 8,
-    backgroundColor: 'rgba(218, 94, 43, 0.8)',
+    backgroundColor: '#FFF',
+    borderWidth: 1,
+    borderColor: '#FF7043',
   },
   datePickerButtonText: {
-    color: '#FFFFFF',
+    color: '#FF7043',
     fontWeight: '600',
     fontSize: 12,
     marginLeft: 8,
   },
-  chartContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start', // Alinea al inicio para que la leyenda no interfiera
-    marginTop: 10,
-  },
-  yAxisLabel: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-    transform: [{ rotate: '-90deg' }],
-    width: 100, // Ancho para que el texto no se corte
-    position: 'absolute',
-    left: -55,
-    top: 80,
-  },
-  xAxisLabel: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+  loadingText: {
+    color: '#616161',
     textAlign: 'center',
-    marginTop: 5,
+    marginTop: 20,
   },
   legendContainer: {
     marginTop: 20,
     width: '100%',
-    paddingHorizontal: 10,
   },
   legendItem: {
     flexDirection: 'row',
@@ -496,19 +452,20 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   legendImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 10,
   },
   legendText: {
-    color: '#FFFFFF',
+    color: '#212121',
     fontSize: 14,
     flex: 1,
   },
   legendQuantity: {
-    color: '#ECCB6C',
+    color: '#212121',
     fontSize: 14,
     fontWeight: 'bold',
   },
 });
+

@@ -19,6 +19,7 @@ import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient'; 
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../src/config/firebaseConfig';
+import { sendPasswordResetEmail } from 'firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 
@@ -102,6 +103,25 @@ export default function Login({ navigation }) {
           break;
       }
       setErrorMessage(errorMessageText);
+      setShowErrorModal(true);
+    }
+  };
+  const handlePasswordReset = async () => {
+    if (!email) {
+      setErrorMessage("Por favor, ingresá tu correo electrónico para recuperar la contraseña.");
+      setShowErrorModal(true);
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setErrorMessage("Se ha enviado un correo para restablecer tu contraseña. Verificá tu bandeja de entrada.");
+      setShowErrorModal(true);
+    } catch (error) {
+      let message = "Error al enviar el correo de recuperación.";
+      if (error.code === 'auth/invalid-email') message = "El formato del correo no es válido.";
+      if (error.code === 'auth/user-not-found') message = "No existe una cuenta con este correo.";
+      setErrorMessage(message);
       setShowErrorModal(true);
     }
   };
@@ -198,6 +218,10 @@ export default function Login({ navigation }) {
                 >
                   <Text style={styles.buttonText}>Iniciar Sesión</Text>
                 </TouchableOpacity>
+                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+                  <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+                </TouchableOpacity>
+
 
                 <View style={styles.linkContainer}>
                   <Text style={styles.signUpText}>¿No tenés cuenta? </Text>
@@ -492,6 +516,13 @@ modalButtonText: {
   color: '#FFFFFF',
   fontSize: 16,
   fontWeight: '600',
+},
+forgotPasswordText: {
+  color: '#ECCB6C',
+  fontSize: 15,
+  fontWeight: '500',
+  textDecorationLine: 'underline',
+  marginTop: 12,
 },
 });
 

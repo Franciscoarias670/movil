@@ -15,6 +15,7 @@ import { StatusBar, View, Text, TouchableOpacity, StyleSheet } from 'react-nativ
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { FontAwesome } from '@expo/vector-icons';
 import MiCuentaInteractiva from '../screens/MiCuenta';
+import ForgotPassword from '../screens/ForgotPassword';
 
 
 const Stack = createStackNavigator();
@@ -170,6 +171,11 @@ function Navigation() {
               <Stack.Screen
                 name="SignUp"
                 component={SignUp}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="ForgotPassword"
+                component={ForgotPassword}
                 options={{ headerShown: false }}
               />
             </>

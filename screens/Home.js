@@ -155,11 +155,12 @@ export default function Home({ navigation }) {
 
   // --- DATE PICKER HANDLERS ---
   const onDateChange = (event, selectedDate) => {
-    setShowDatePicker(false);
-    if (!selectedDate) return;
-    if (datePickerTarget === 'start') setStartDate(selectedDate);
-    else setEndDate(selectedDate);
-  };
+  setShowDatePicker(false);
+  if (!selectedDate) return;
+  if (datePickerTarget === 'start') setStartDate(selectedDate);
+  else setEndDate(selectedDate);
+};
+
 
   const showDatepicker = (target) => {
     setDatePickerTarget(target);
@@ -277,8 +278,12 @@ export default function Home({ navigation }) {
                       mode="date"
                       display="default"
                       onChange={onDateChange}
+                      minimumDate={new Date(new Date().getFullYear(), 0, 1)} // 1 de enero del año actual
+                      maximumDate={new Date()} // Hoy, no se puede seleccionar días futuros
                     />
                   )}
+
+
                 </View>
               </View>
             </ScrollView>

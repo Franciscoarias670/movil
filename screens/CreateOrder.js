@@ -320,16 +320,31 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, height: 50, fontSize: 16, color: '#333' },
   loadingText: { color: '#FFFFFF', textAlign: 'center', marginTop: 20 },
   productItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 8,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  productImage: { width: 50, height: 50, borderRadius: 8, marginRight: 10 },
-  productName: { flex: 1, color: '#FFFFFF', fontSize: 16, fontWeight: '500' },
-  productPrice: { color: '#ECCB6C', fontSize: 16, fontWeight: '600' },
+  flexDirection: 'row',
+  alignItems: 'center',
+  backgroundColor: 'rgba(255,255,255,0.1)',
+  padding: 15,               // antes 8
+  borderRadius: 12,          // antes 8
+  marginBottom: 12,          // antes 8
+},
+productImage: { 
+  width: 70,                  // antes 50
+  height: 70,                 // antes 50
+  borderRadius: 10,           // antes 8
+  marginRight: 15,
+},
+productName: { 
+  flex: 1, 
+  color: '#FFFFFF', 
+  fontSize: 18,               // antes 16
+  fontWeight: '600',          // antes 500
+},
+productPrice: { 
+  color: '#ECCB6C', 
+  fontSize: 17,               // antes 16
+  fontWeight: '700',          // antes 600
+},
+
   fab: {
     position: 'absolute',
     width: 60,

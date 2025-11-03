@@ -27,6 +27,8 @@ export default function SignUp({ navigation }) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [emailError, setEmailError] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -37,10 +39,13 @@ export default function SignUp({ navigation }) {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const animatedValue = useRef(new Animated.Value(0)).current;
+  const allowedDomains = ['gmail.com', 'hotmail.com', 'yahoo.com'];
 
   const isValidEmail = (email) => {
-    const regex = /^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
-    return regex.test(email.toLowerCase());
+    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,10}$/;
+    if (!regex.test(email.toLowerCase())) return false;
+    const domain = email.split('@')[1]?.toLowerCase();
+    return allowedDomains.includes(domain);
   };
 
   const hasMinLength = password.length >= 6;
@@ -48,17 +53,16 @@ export default function SignUp({ navigation }) {
   const hasLowerCase = /[a-z]/.test(password);
   const hasNumber = /[0-9]/.test(password);
   const passwordsMatch = password === confirmPassword && confirmPassword !== '';
-
   const passwordStrengthValid = hasMinLength && hasUpperCase && hasLowerCase && hasNumber;
   const isPasswordValid = passwordStrengthValid && passwordsMatch;
 
   const handleFirstNameChange = (text) => {
-    const filteredText = text.replace(/[^a-zA-Z\s]/g, '');
+    const filteredText = text.replace(/[^a-zA-ZñÑáéíóúÁÉÍÓÚ\s]/g, '');
     setFirstName(filteredText);
   };
 
   const handleLastNameChange = (text) => {
-    const filteredText = text.replace(/[^a-zA-Z\s]/g, '');
+    const filteredText = text.replace(/[^a-zA-ZñÑáéíóúÁÉÍÓÚ\s]/g, '');
     setLastName(filteredText);
   };
 
@@ -92,20 +96,20 @@ export default function SignUp({ navigation }) {
       return;
     }
 
-    if (!/^[a-zA-Z\s]+$/.test(firstName.trim()) || firstName.trim() === '') {
-      setErrorMessage("El nombre solo puede contener letras y espacios.");
+    if (!/^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]+$/.test(firstName.trim())) {
+      setErrorMessage("El nombre solo puede contener letras, espacios y tildes.");
       setShowErrorModal(true);
       return;
     }
 
-    if (!/^[a-zA-Z\s]+$/.test(lastName.trim()) || lastName.trim() === '') {
-      setErrorMessage("El apellido solo puede contener letras y espacios.");
+    if (!/^[a-zA-ZñÑáéíóúÁÉÍÓÚ\s]+$/.test(lastName.trim())) {
+      setErrorMessage("El apellido solo puede contener letras, espacios y tildes.");
       setShowErrorModal(true);
       return;
     }
 
     if (!isValidEmail(email)) {
-      setErrorMessage("El formato del correo electrónico no es válido.\nVerifica el dominio.");
+      setErrorMessage("Correo inválido o dominio no permitido.\nUsa: gmail.com, hotmail.com, yahoo.com");
       setShowErrorModal(true);
       return;
     }
@@ -121,10 +125,13 @@ export default function SignUp({ navigation }) {
       await updateProfile(userCredential.user, {
         displayName: `${firstName.trim()} ${lastName.trim()}`
       });
-      // Se cierra la sesión para que el estado de autenticación sea 'logged out'.
-      await signOut(auth); 
-      // Se muestra el modal de éxito. La navegación ocurrirá al cerrarlo.
-      setShowSuccessModal(true); 
+
+      // 🔹 Cerrar sesión inmediatamente después del registro
+      await signOut(auth);
+
+      // 🔹 Mostrar modal de éxito
+      setShowSuccessModal(true);
+
     } catch (error) {
       let errorMessageText = "Hubo un problema al registrar el usuario.";
       switch (error.code) {
@@ -146,13 +153,13 @@ export default function SignUp({ navigation }) {
     }
   };
 
-  const handleSuccessClose = () => {
-    setShowSuccessModal(false);
-    navigation.navigate('Login'); // Navegamos a Login después de que el usuario vea el mensaje.
-  };
-
   const handleErrorClose = () => {
     setShowErrorModal(false);
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    navigation.replace('Login');
   };
 
   const PasswordRequirement = ({ met, text }) => (
@@ -162,108 +169,66 @@ export default function SignUp({ navigation }) {
         size={16}
         color={met ? "#E0782F" : "#a2a1a1ff"}
       />
-      <Text style={[styles.requirementText, { color: met ? "#ECCB6C" : "#a2a1a1ff" }]}>
-        {text}
-      </Text>
+      <Text style={[styles.requirementText, { color: met ? "#ECCB6C" : "#a2a1a1ff" }]}>{text}</Text>
     </View>
   );
 
-  const getPasswordBorderColor = () => {
-    if (password.length === 0) return '#CF302A';
-    return passwordStrengthValid ? '#ECCB6C' : '#CF302A';
-  };
-
-  const getConfirmPasswordBorderColor = () => {
-    if (confirmPassword.length === 0) return '#CF302A';
-    return passwordsMatch ? '#ECCB6C' : '#CF302A';
-  };
+  const getPasswordBorderColor = () => password.length === 0 ? '#CF302A' : passwordStrengthValid ? '#ECCB6C' : '#CF302A';
+  const getConfirmPasswordBorderColor = () => confirmPassword.length === 0 ? '#CF302A' : passwordsMatch ? '#ECCB6C' : '#CF302A';
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
-      
-      <ImageBackground 
-        source={backgroundImage} 
-        style={styles.backgroundImage} 
-        blurRadius={2} 
-        resizeMode="cover"
-      >
-        <LinearGradient
-          colors={['rgba(0, 0, 0, 0.7)', 'rgba(135, 86, 56, 0.6)', 'rgba(0, 0, 0, 0.7)']} 
-          style={styles.overlayGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <KeyboardAvoidingView 
-            style={styles.keyboardAvoiding}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          >
-            <ScrollView 
-              contentContainerStyle={styles.scrollContainer}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
+      <ImageBackground source={backgroundImage} style={styles.backgroundImage} blurRadius={2} resizeMode="cover">
+        <LinearGradient colors={['rgba(0,0,0,0.7)','rgba(135,86,56,0.6)','rgba(0,0,0,0.7)']} style={styles.overlayGradient} start={{x:0,y:0}} end={{x:1,y:1}}>
+          <KeyboardAvoidingView style={styles.keyboardAvoiding} behavior={Platform.OS==='ios'?'padding':'height'}>
+            <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={styles.centralContainer}>
                 <View style={styles.hamburgerCircle}>
                   <Animated.View style={[styles.hamburgerImageContainer, { transform: [{ translateY: animatedValue }] }]}>
-                    <Image 
-                      source={require('../assets/hamburguesa-flotante.png')} 
-                      style={styles.hamburgerImage} 
-                      resizeMode="contain"
-                    />
+                    <Image source={require('../assets/hamburguesa-flotante.png')} style={styles.hamburgerImage} resizeMode="contain" />
                   </Animated.View>
                 </View>
                 <Text style={styles.title}>REGISTRATE</Text>
 
-                <View style={styles.labelContainer}>
-                  <Text style={styles.label}>Nombre</Text>
-                </View>
+                {/* Nombre */}
+                <View style={styles.labelContainer}><Text style={styles.label}>Nombre</Text></View>
                 <View style={[styles.inputContainer, { borderColor: '#CF302A' }]}>
                   <FontAwesome name="user" size={20} color="#DA5E2B" style={styles.icon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ingrese su nombre"
-                    placeholderTextColor="#a2a1a1ff"
-                    value={firstName}
-                    onChangeText={handleFirstNameChange}
-                    keyboardType="default"
-                  />
+                  <TextInput style={styles.input} placeholder="Ingrese su nombre" placeholderTextColor="#a2a1a1ff" value={firstName} onChangeText={handleFirstNameChange} keyboardType="default"/>
                 </View>
 
-                <View style={styles.labelContainer}>
-                  <Text style={styles.label}>Apellido</Text>
-                </View>
+                {/* Apellido */}
+                <View style={styles.labelContainer}><Text style={styles.label}>Apellido</Text></View>
                 <View style={[styles.inputContainer, { borderColor: '#CF302A' }]}>
                   <FontAwesome name="user" size={20} color="#DA5E2B" style={styles.icon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Ingrese su apellido"
-                    placeholderTextColor="#a2a1a1ff"
-                    value={lastName}
-                    onChangeText={handleLastNameChange}
-                    keyboardType="default"
-                  />
+                  <TextInput style={styles.input} placeholder="Ingrese su apellido" placeholderTextColor="#a2a1a1ff" value={lastName} onChangeText={handleLastNameChange} keyboardType="default"/>
                 </View>
 
-                <View style={styles.labelContainer}>
-                  <Text style={styles.label}>Correo</Text>
-                </View>
-                <View style={[styles.inputContainer, { borderColor: '#CF302A' }]}>
+                {/* Correo */}
+                <View style={styles.labelContainer}><Text style={styles.label}>Correo</Text></View>
+                <View style={[styles.inputContainer, { borderColor: (emailError && emailTouched) ? '#FF4D4D' : '#CF302A' }]}>
                   <FontAwesome name="envelope" size={20} color="#DA5E2B" style={styles.icon} />
                   <TextInput
                     style={styles.input}
                     placeholder="Ingrese su correo"
                     placeholderTextColor="#a2a1a1ff"
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={(text)=>{
+                      setEmail(text);
+                      if(text==='') setEmailError('');
+                      else if(!isValidEmail(text)) setEmailError('Correo inválido o dominio no permitido (ej: gmail.com)');
+                      else setEmailError('');
+                    }}
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    onBlur={()=>setEmailTouched(true)}
                   />
                 </View>
+                {emailError && emailTouched && <Text style={{ color:'#FF4D4D', alignSelf:'flex-start', marginBottom:5 }}>{emailError}</Text>}
 
-                <View style={styles.labelContainer}>
-                  <Text style={styles.label}>Contraseña</Text>
-                </View>
+                {/* Contraseña */}
+                <View style={styles.labelContainer}><Text style={styles.label}>Contraseña</Text></View>
                 <View style={[styles.inputContainer, { borderColor: getPasswordBorderColor() }]}>
                   <FontAwesome name="lock" size={20} color="#DA5E2B" style={styles.icon} />
                   <TextInput
@@ -273,27 +238,26 @@ export default function SignUp({ navigation }) {
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry={!showPassword}
-                    onFocus={() => setPasswordFocused(true)}
-                    onBlur={() => setPasswordFocused(false)}
+                    onFocus={()=>setPasswordFocused(true)}
+                    onBlur={()=>setPasswordFocused(false)}
                   />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                    <FontAwesome name={showPassword ? "eye-slash" : "eye"} size={20} color="#DA5E2B" />
+                  <TouchableOpacity onPress={()=>setShowPassword(!showPassword)}>
+                    <FontAwesome name={showPassword?"eye-slash":"eye"} size={20} color="#DA5E2B" />
                   </TouchableOpacity>
                 </View>
 
                 {passwordFocused && (
                   <View style={styles.requirementsContainer}>
                     <Text style={styles.requirement}>Debe tener al menos: </Text>
-                    <PasswordRequirement met={hasMinLength} text="Más de 5 carácteres." />
+                    <PasswordRequirement met={hasMinLength} text="Más de 5 caracteres." />
                     <PasswordRequirement met={hasUpperCase} text="Una mayúscula." />
                     <PasswordRequirement met={hasLowerCase} text="Una minúscula." />
                     <PasswordRequirement met={hasNumber} text="Un número." />
                   </View>
                 )}
 
-                <View style={styles.labelContainer}>
-                  <Text style={styles.label}>Confirmar Contraseña</Text>
-                </View>
+                {/* Confirmar contraseña */}
+                <View style={styles.labelContainer}><Text style={styles.label}>Confirmar Contraseña</Text></View>
                 <View style={[styles.inputContainer, { borderColor: getConfirmPasswordBorderColor() }]}>
                   <FontAwesome name="lock" size={20} color="#DA5E2B" style={styles.icon} />
                   <TextInput
@@ -304,30 +268,18 @@ export default function SignUp({ navigation }) {
                     onChangeText={setConfirmPassword}
                     secureTextEntry={!showConfirmPassword}
                   />
-                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                    <FontAwesome name={showConfirmPassword ? "eye-slash" : "eye"} size={20} color="#DA5E2B" />
+                  <TouchableOpacity onPress={()=>setShowConfirmPassword(!showConfirmPassword)}>
+                    <FontAwesome name={showConfirmPassword?"eye-slash":"eye"} size={20} color="#DA5E2B" />
                   </TouchableOpacity>
                 </View>
 
-                {confirmPassword.length > 0 && (
-                  <View style={styles.requirementsContainer}>
-                    <PasswordRequirement
-                      met={passwordsMatch}
-                      text={passwordsMatch ? "Las contraseñas coinciden." : "Las contraseñas no coinciden."}
-                    />
-                  </View>
-                )}
-
-                <TouchableOpacity 
-                  style={styles.button}
-                  onPress={handleSignUp}
-                >
+                <TouchableOpacity style={styles.button} onPress={handleSignUp}>
                   <Text style={styles.buttonText}>Registrarse</Text>
                 </TouchableOpacity>
 
                 <View style={styles.linkContainer}>
                   <Text style={styles.signUpText}>¿Ya tenés cuenta? </Text>
-                  <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                  <TouchableOpacity onPress={()=>navigation.navigate('Login')}>
                     <Text style={styles.registerLink}>Inicia Sesión</Text>
                   </TouchableOpacity>
                 </View>
@@ -337,22 +289,13 @@ export default function SignUp({ navigation }) {
         </LinearGradient>
       </ImageBackground>
 
-      {/* Modal de Error General */}
-      <Modal
-        visible={showErrorModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleErrorClose}
-      >
+      {/* Modal de Error */}
+      <Modal visible={showErrorModal} transparent animationType="fade" onRequestClose={handleErrorClose}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <FontAwesome name="exclamation-triangle" size={40} color="#CF302A" style={styles.modalIcon} />
             <Text style={styles.modalTitle}>Error</Text>
-            {errorMessage.split('\n').map((line, index) => (
-              <Text key={index} style={styles.modalMessage} numberOfLines={undefined}>
-                {line}
-              </Text>
-            ))}
+            {errorMessage.split('\n').map((line,index)=>(<Text key={index} style={styles.modalMessage}>{line}</Text>))}
             <TouchableOpacity style={styles.modalButton} onPress={handleErrorClose}>
               <Text style={styles.modalButtonText}>OK</Text>
             </TouchableOpacity>
@@ -361,17 +304,12 @@ export default function SignUp({ navigation }) {
       </Modal>
 
       {/* Modal de Éxito */}
-      <Modal
-        visible={showSuccessModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleSuccessClose}
-      >
+      <Modal visible={showSuccessModal} transparent animationType="fade" onRequestClose={handleSuccessClose}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <FontAwesome name="check-circle" size={40} color="#E0782F" style={styles.modalIcon} />
             <Text style={styles.modalTitle}>¡Éxito!</Text>
-            <Text style={styles.modalMessage} numberOfLines={undefined}>Usuario registrado con éxito.</Text>
+            <Text style={styles.modalMessage}>Usuario registrado con éxito.</Text>
             <TouchableOpacity style={styles.modalButton} onPress={handleSuccessClose}>
               <Text style={styles.modalButtonText}>Continuar</Text>
             </TouchableOpacity>
@@ -381,7 +319,6 @@ export default function SignUp({ navigation }) {
     </SafeAreaView>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -561,7 +498,6 @@ const styles = StyleSheet.create({
     color: '#ECCB6C',
     fontSize: 15,
     fontWeight: '600',
-    textDecorationLine: 'underline',
     marginLeft: 4,
   },
   modalOverlay: {

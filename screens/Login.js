@@ -27,13 +27,15 @@ const backgroundImage = require('../assets/hamburguesas-fondo.png');
 
 export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   // El modal de éxito ahora controlará la navegación
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   const [showFieldsErrorModal, setShowFieldsErrorModal] = useState(false);
 
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -72,40 +74,41 @@ export default function Login({ navigation }) {
   }, [animatedValue]);
 
   const handleLogin = async () => {
-    if (!email || !password) {
-      setShowFieldsErrorModal(true);
-      return;
-    }
+  setEmailTouched(true); // forzar mostrar error si es inválido
 
-    if (!isValidEmail(email)) {
-      setErrorMessage("El formato del correo electrónico no es válido. Verifica el dominio.");
-      setShowErrorModal(true);
-      return;
-    }
+  if (!email || !password) {
+    setShowFieldsErrorModal(true);
+    return;
+  }
 
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setShowSuccessModal(true);
-    } catch (error) {
-      let errorMessageText = "Credenciales Invalidas. Correo/Contraseña incorrecta.";
-      switch (error.code) {
-        case 'auth/invalid-email':
-          errorMessageText = "El formato del correo electrónico no es válido. Verifica el dominio.";
-          break;
-        case 'auth/user-disabled':
-          errorMessageText = "Esta cuenta ha sido deshabilitada. Contacta al soporte.";
-          break;
-        case 'auth/user-not-found':
-          errorMessageText = "No existe una cuenta con este correo. ¿Olvidaste tu email?";
-          break;
-        case 'auth/wrong-password':
-          errorMessageText = "La contraseña es incorrecta. Intenta de nuevo.";
-          break;
-      }
-      setErrorMessage(errorMessageText);
-      setShowErrorModal(true);
+  if (!isValidEmail(email)) {
+    setEmailError('Formato inválido (ej: correo@gmail.com)');
+    return;
+  }
+
+  try {
+   await signInWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    let errorMessageText = "Credenciales Invalidas. Correo/Contraseña incorrecto.";
+    switch (error.code) {
+      case 'auth/invalid-email':
+        errorMessageText = "El formato del correo electrónico no es válido. Verifica el dominio.";
+        break;
+      case 'auth/user-disabled':
+        errorMessageText = "Esta cuenta ha sido deshabilitada. Contacta al soporte.";
+        break;
+      case 'auth/user-not-found':
+        errorMessageText = "No existe una cuenta con este correo. ¿Olvidaste tu email?";
+        break;
+      case 'auth/wrong-password':
+        errorMessageText = "La contraseña es incorrecta. Intenta de nuevo.";
+        break;
     }
-  };
+    setErrorMessage(errorMessageText);
+    setShowErrorModal(true);
+  }
+};
+
   const handlePasswordReset = async () => {
     if (!email) {
       setErrorMessage("Por favor, ingresá tu correo electrónico para recuperar la contraseña.");
@@ -126,11 +129,6 @@ export default function Login({ navigation }) {
     }
   };
 
-  // La navegación ahora se dispara explícitamente al cerrar el modal de éxito.
-  const handleSuccessClose = () => {
-    setShowSuccessModal(false);
-    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-  };
 
   const handleErrorClose = () => {
     setShowErrorModal(false);
@@ -181,18 +179,40 @@ export default function Login({ navigation }) {
                 <View style={styles.labelContainer}>
                   <Text style={styles.label}>Correo</Text>
                 </View>
-                <View style={[styles.inputContainer, { borderColor: '#CF302A' }]}>
-                  <FontAwesome name="envelope" size={20} color="#DA5E2B" style={styles.icon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Correo"
-                    placeholderTextColor="#a2a1a1ff"
-                    value={email}
-                    onChangeText={setEmail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
+              <View style={[styles.inputContainer, { borderColor: (emailError && emailTouched) ? '#FF4D4D' : '#CF302A' }]}>
+  <FontAwesome name="envelope" size={20} color="#DA5E2B" style={styles.icon} />
+  <TextInput
+    style={styles.input}
+    placeholder="Correo"
+    placeholderTextColor="#a2a1a1ff"
+    value={email}
+    onChangeText={(text) => {
+      setEmail(text);
+
+      // Si borra todo, quitar mensaje
+      if (text === '') {
+        setEmailError('');
+      }
+    }}
+    onBlur={() => {
+      setEmailTouched(true);
+      if (email !== '' && !isValidEmail(email)) {
+        setEmailError('Formato inválido (ej: correo@gmail.com)');
+      } else {
+        setEmailError('');
+      }
+    }}
+    keyboardType="email-address"
+    autoCapitalize="none"
+  />
+</View>
+
+{emailError && emailTouched ? (
+  <Text style={styles.emailErrorText}>{emailError}</Text>
+) : null}
+
+
+
 
                 <View style={styles.labelContainer}>
                   <Text style={styles.label}>Contraseña</Text>
@@ -211,17 +231,17 @@ export default function Login({ navigation }) {
                     <FontAwesome name={showPassword ? "eye-slash" : "eye"} size={20} color="#DA5E2B" />
                   </TouchableOpacity>
                 </View>
-
+                <View style={styles.forgotContainer}>
+  <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+    <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+  </TouchableOpacity>
+</View>
                 <TouchableOpacity 
                   style={styles.button}
                   onPress={handleLogin}
                 >
                   <Text style={styles.buttonText}>Iniciar Sesión</Text>
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
-                  <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
-                </TouchableOpacity>
-
 
                 <View style={styles.linkContainer}>
                   <Text style={styles.signUpText}>¿No tenés cuenta? </Text>
@@ -252,25 +272,6 @@ export default function Login({ navigation }) {
           </View>
         </View>
       </Modal>
-
-      <Modal
-        visible={showSuccessModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleSuccessClose}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <FontAwesome name="check-circle" size={40} color="#E0782F" style={styles.modalIcon} />
-            <Text style={styles.modalTitle}>¡Éxito!</Text>
-            <Text style={styles.modalMessage}>Inicio de sesión exitoso.</Text>
-            <TouchableOpacity style={styles.modalButton} onPress={handleSuccessClose}>
-              <Text style={styles.modalButtonText}>Continuar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       <Modal
         visible={showFieldsErrorModal}
         transparent={true}
@@ -281,7 +282,7 @@ export default function Login({ navigation }) {
           <View style={styles.modalContainer}>
             <FontAwesome name="info-circle" size={40} color="#ECCB6C" style={styles.modalIcon} />
             <Text style={styles.modalTitle}>Campos Incompletos</Text>
-            <Text style={styles.modalMessage}>Por favor, completa todos los campos para continuar.</Text>
+            <Text style={styles.modalMessage}>Por favor, complete todos los campos para continuar.</Text>
             <TouchableOpacity style={styles.modalButton} onPress={handleFieldsErrorClose}>
               <Text style={styles.modalButtonText}>OK</Text>
             </TouchableOpacity>
@@ -457,7 +458,6 @@ const styles = StyleSheet.create({
     color: '#ECCB6C',
     fontSize: 15,
     fontWeight: '600',
-    textDecorationLine: 'underline',
     marginLeft: 4,
   },
   modalOverlay: {
@@ -517,12 +517,25 @@ modalButtonText: {
   fontSize: 16,
   fontWeight: '600',
 },
+forgotContainer: {
+  width: '100%',
+  alignItems: 'flex-end', // alineado a la derecha
+  marginBottom: 10,
+},
+
 forgotPasswordText: {
-  color: '#ECCB6C',
+  color: '#ECCB6C', // celeste
   fontSize: 15,
   fontWeight: '500',
-  textDecorationLine: 'underline',
-  marginTop: 12,
+  textDecorationLine: 'none', // sin subrayado
+  marginTop: 4,
+},
+emailErrorText: {
+  color: '#FF4D4D', // rojo para error
+  fontSize: 13,
+  alignSelf: 'flex-start',
+  marginTop: 4,
+  marginLeft: 5,
 },
 });
 

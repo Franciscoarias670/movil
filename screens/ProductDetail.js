@@ -28,26 +28,38 @@ export default function ProductDetail({ route, navigation }) {
             </TouchableOpacity>
 
             <Image source={{ uri: product.imageUrl || 'https://via.placeholder.com/200' }} style={styles.productImage} />
-            
-            <Text style={styles.productName}>{product.name}</Text>
-            
-            <View style={styles.priceContainer}>
-              <Text style={styles.productPrice}>$ {product.price}</Text>
-              <View style={[styles.availabilityBadge, { backgroundColor: product.isAvailable ? '#03ce00ff' : '#CF302A' }]}>
-                <Text style={styles.availabilityText}>{product.isAvailable ? 'Disponible' : 'No Disponible'}</Text>
-              </View>
+
+            {/* NOMBRE */}
+            <View style={styles.detailSection}>
+              <Text style={styles.sectionTitle}>Nombre</Text>
+              <Text style={styles.sectionContent}>{product.name}</Text>
             </View>
 
+            {/* PRECIO */}
+            <View style={styles.detailSection}>
+              <Text style={styles.sectionTitle}>Precio</Text>
+              <Text style={styles.sectionContent}>$ {product.price}</Text>
+            </View>
+
+            {/* ESTADO */}
+            <View style={styles.detailSection}>
+              <Text style={styles.sectionTitle}>Estado</Text>
+              <Text style={styles.sectionContent}>{product.isAvailable ? 'Disponible' : 'No Disponible'}</Text>
+            </View>
+
+            {/* DESCRIPCIÓN */}
             <View style={styles.detailSection}>
               <Text style={styles.sectionTitle}>Descripción</Text>
               <Text style={styles.sectionContent}>{product.description || 'No hay descripción disponible.'}</Text>
             </View>
 
+            {/* INSUMOS */}
             <View style={styles.detailSection}>
               <Text style={styles.sectionTitle}>Insumos</Text>
               <Text style={styles.sectionContent}>{product.insumos?.join(', ') || 'No especificados.'}</Text>
             </View>
 
+            {/* CATEGORÍA */}
             <View style={styles.detailSection}>
               <Text style={styles.sectionTitle}>Categoría</Text>
               <Text style={styles.sectionContent}>{formattedCategory}</Text>
@@ -62,7 +74,7 @@ export default function ProductDetail({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' }, // Añadido para consistencia de fondo
+  container: { flex: 1, backgroundColor: '#000' },
   overlayGradient: { flex: 1 },
   scrollContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   centralContainer: {
@@ -89,34 +101,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#ECCB6C',
     marginBottom: 20,
-  },
-  productName: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    textAlign: 'center',
-    marginBottom: 10,
-  },
-  priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  productPrice: {
-    fontSize: 26,
-    fontWeight: '600',
-    color: '#ECCB6C',
-  },
-  availabilityBadge: {
-    marginLeft: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-  },
-  availabilityText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
   },
   detailSection: {
     width: '100%',
